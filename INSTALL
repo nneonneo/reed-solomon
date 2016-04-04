@@ -1,0 +1,4 @@
+Compile `reed_solomon.c` with your project. It should simply compile
+with any modern compiler (except MSVC, because MSVC is still stuck on
+C89...)
+
