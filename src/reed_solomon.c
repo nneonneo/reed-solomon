@@ -38,32 +38,11 @@
  *
  */
 
-/* TODO(tierney): Avoiding the use of the kernel libraries in order to port this
- * code to userspace. */
-
-/* #include <linux/errno.h> */
-/* #include <linux/kernel.h> */
-/* #include <linux/init.h> */
-/* #include <linux/module.h> */
-/* #include <linux/rslib.h> */
-/* #include <linux/slab.h> */
-#include "rslib.h"
+#include "reed_solomon.h"
 
 #include <assert.h>
 #include <math.h>
-#include <pthread.h>
 #include <stdlib.h>
-
-/* This list holds all currently allocated rs control structures */
-static LIST_HEAD (rslist);
-/* Protection for the list */
-
-static pthread_mutex_t rslistlock;
-
-#define mutex_lock(lock) if (0 != pthread_mutex_lock(lock)) { abort(); }
-#define mutex_unlock(lock) if (0 != pthread_mutex_unlock(lock)) { abort(); }
-
-/* static DEFINE_MUTEX(rslistlock); */
 
 /**
  * rs_init - Initialize a Reed-Solomon codec
@@ -87,8 +66,6 @@ static struct rs_control *rs_init(int symsize, int gfpoly, int (*gffunc)(int),
 	rs = (struct rs_control *)malloc(sizeof (struct rs_control));
 	if (rs == NULL)
 		return NULL;
-
-	INIT_LIST_HEAD(&rs->list);
 
 	rs->mm = symsize;
 	rs->nn = (1 << symsize) - 1;
@@ -184,16 +161,10 @@ errrs:
  */
 void free_rs(struct rs_control *rs)
 {
-	mutex_lock(&rslistlock);
-	rs->users--;
-	if(!rs->users) {
-		list_del(&rs->list);
-		free(rs->alpha_to);
-		free(rs->index_of);
-		free(rs->genpoly);
-		free(rs);
-	}
-	mutex_unlock(&rslistlock);
+    free(rs->alpha_to);
+    free(rs->index_of);
+    free(rs->genpoly);
+    free(rs);
 }
 
 /**
@@ -214,13 +185,6 @@ static struct rs_control *init_rs_internal(int symsize, int gfpoly,
                                            int (*gffunc)(int), int fcr,
                                            int prim, int nroots)
 {
-	struct list_head	*tmp;
-	struct rs_control	*rs;
-
-  if (0 != pthread_mutex_init(&rslistlock, NULL)) {
-    return NULL;
-  }
-  
 	/* Sanity checks */
 	if (symsize < 1)
 		return NULL;
@@ -231,37 +195,7 @@ static struct rs_control *init_rs_internal(int symsize, int gfpoly,
 	if (nroots < 0 || nroots >= (1<<symsize))
 		return NULL;
 
-	mutex_lock(&rslistlock);
-
-	/* Walk through the list and look for a matching entry */
-	list_for_each(tmp, &rslist) {
-		rs = list_entry(tmp, struct rs_control, list);
-		if (symsize != rs->mm)
-			continue;
-		if (gfpoly != rs->gfpoly)
-			continue;
-		if (gffunc != rs->gffunc)
-			continue;
-		if (fcr != rs->fcr)
-			continue;
-		if (prim != rs->prim)
-			continue;
-		if (nroots != rs->nroots)
-			continue;
-		/* We have a matching one already */
-		rs->users++;
-		goto out;
-	}
-
-	/* Create a new one */
-	rs = rs_init(symsize, gfpoly, gffunc, fcr, prim, nroots);
-	if (rs) {
-		rs->users = 1;
-		list_add(&rs->list, &rslist);
-	}
-out:
-	mutex_unlock(&rslistlock);
-	return rs;
+	return rs_init(symsize, gfpoly, gffunc, fcr, prim, nroots);
 }
 
 /**
@@ -300,7 +234,6 @@ struct rs_control *init_rs_non_canonical(int symsize, int (*gffunc)(int),
 	return init_rs_internal(symsize, 0, gffunc, fcr, prim, nroots);
 }
 
-#ifdef CONFIG_REED_SOLOMON_ENC8
 /**
  *  encode_rs8 - Calculate the parity for data values (8bit data width)
  *  @rs:	the rs control structure
@@ -318,9 +251,7 @@ int encode_rs8(struct rs_control *rs, uint8_t *data, int len, uint16_t *par,
 {
 #include "encode_rs.h"
 }
-#endif
 
-#ifdef CONFIG_REED_SOLOMON_DEC8
 /**
  *  decode_rs8 - Decode codeword (8bit data width)
  *  @rs:	the rs control structure
@@ -344,9 +275,7 @@ int decode_rs8(struct rs_control *rs, uint8_t *data, uint16_t *par, int len,
 {
 #include "decode_rs.h"
 }
-#endif
 
-#ifdef CONFIG_REED_SOLOMON_ENC16
 /**
  *  encode_rs16 - Calculate the parity for data values (16bit data width)
  *  @rs:	the rs control structure
@@ -360,11 +289,9 @@ int decode_rs8(struct rs_control *rs, uint8_t *data, uint16_t *par, int len,
 int encode_rs16(struct rs_control *rs, uint16_t *data, int len, uint16_t *par,
 	uint16_t invmsk)
 {
-#include "encode_rs.c"
+#include "encode_rs.h"
 }
-#endif
 
-#ifdef CONFIG_REED_SOLOMON_DEC16
 /**
  *  decode_rs16 - Decode codeword (16bit data width)
  *  @rs:	the rs control structure
@@ -384,6 +311,5 @@ int decode_rs16(struct rs_control *rs, uint16_t *data, uint16_t *par, int len,
 		uint16_t *s, int no_eras, int *eras_pos, uint16_t invmsk,
 		uint16_t *corr)
 {
-#include "decode_rs.c"
+#include "decode_rs.h"
 }
-#endif

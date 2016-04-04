@@ -16,17 +16,14 @@
  * published by the Free Software Foundation.
  */
 
-#ifndef _RSLIB_H_
-#define _RSLIB_H_
+#pragma once
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
+#include <stdint.h>
 #include <string.h>
-
-#include "config.h"
-#include "list.h"
 
 /**
  * struct rs_control - rs control structure
@@ -57,31 +54,23 @@ struct rs_control {
 	int 		iprim;
 	int		gfpoly;
 	int		(*gffunc)(int);
-	int		users;
-	struct list_head list;
 };
 
 /* General purpose RS codec, 8-bit data width, symbol width 1-15 bit  */
-#ifdef CONFIG_REED_SOLOMON_ENC8
 int encode_rs8(struct rs_control *rs, uint8_t *data, int len, uint16_t *par,
 	       uint16_t invmsk);
-#endif
-#ifdef CONFIG_REED_SOLOMON_DEC8
+
 int decode_rs8(struct rs_control *rs, uint8_t *data, uint16_t *par, int len,
 		uint16_t *s, int no_eras, int *eras_pos, uint16_t invmsk,
 	       uint16_t *corr);
-#endif
 
 /* General purpose RS codec, 16-bit data width, symbol width 1-15 bit  */
-#ifdef CONFIG_REED_SOLOMON_ENC16
 int encode_rs16(struct rs_control *rs, uint16_t *data, int len, uint16_t *par,
 		uint16_t invmsk);
-#endif
-#ifdef CONFIG_REED_SOLOMON_DEC16
+
 int decode_rs16(struct rs_control *rs, uint16_t *data, uint16_t *par, int len,
 		uint16_t *s, int no_eras, int *eras_pos, uint16_t invmsk,
 		uint16_t *corr);
-#endif
 
 /* Create or get a matching rs control structure */
 struct rs_control *init_rs(int symsize, int gfpoly, int fcr, int prim,
@@ -115,6 +104,4 @@ static inline int rs_modnn(struct rs_control *rs, int x)
 
 #ifdef __cplusplus
 }
-#endif
-
 #endif
