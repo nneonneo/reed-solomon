@@ -93,7 +93,7 @@ void free_rs(struct rs_control *rs);
  *  Simple arithmetic modulo would return a wrong result for values
  *  >= 3 * rs->nn
 */
-static inline int rs_modnn(struct rs_control *rs, int x)
+static int rs_modnn(struct rs_control *rs, int x)
 {
 	while (x >= rs->nn) {
 		x -= rs->nn;
